@@ -50,7 +50,41 @@ The host config in `printer.cfg` does this:
 5. Real BMCU work should be added in `klipper_src/src/esp32/bmcu_fake.c`.
 6. When the work is complete, `channel_action_endstop_pin` should read high so Klipper continues.
 
-At the moment, `bmcu_fake_start_action()` completes immediately. Replace that placeholder with the real asynchronous load/unload work.
+## External BMCU UART
+
+The real BMCU work is triggered over a second ESP32 UART:
+
+| Signal | ESP32 pin |
+| --- | --- |
+| BMCU UART TX | GPIO27 / D27 |
+| BMCU UART RX | GPIO26 / D26 |
+
+The firmware currently uses `UART_NUM_2` at `115200 8N1`.
+
+When `channel_mode` is `0`, the firmware sends:
+
+```text
+INPUT <id>
+```
+
+When `channel_mode` is `1`, the firmware sends:
+
+```text
+OUTPUT <id>
+```
+
+`id` is the encoded channel number `0..3`. The external device should start
+the requested operation after receiving the command and return a line containing
+only:
+
+```text
+DONE
+```
+
+After `DONE` is received, `channel_action_endstop_pin` reads high and Klipper
+continues.
+
+During an active action, the firmware blinks the board LED on GPIO2.
 
 ## Build Note
 
