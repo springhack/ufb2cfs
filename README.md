@@ -10,12 +10,11 @@ fake Klipper pin operations into UART commands for the external BMCU adapter.
 ```text
 .
 ├── src/                   All firmware C/H sources and ESP-IDF component files
-│   ├── board/             Board compatibility wrappers used by Klipper MCU code
-│   ├── esp32/             ESP32 platform code and BMCU shim
-│   ├── generic/           Generic Klipper MCU helpers
 │   ├── CMakeLists.txt     ESP-IDF component definition
 │   └── compile_time_request.c
-├── printer.cfg            Klipper host config and BMCU G-code macros
+├── config/
+│   ├── box.cfg            Creality/K2 CFS box config; keep as upstream input
+│   └── bmcu.cfg           BMCU host config and G-code macros
 ├── klipper.dict           Generated identify dictionary used by Klipper host
 ├── platformio.ini         PlatformIO build configuration
 ├── sdkconfig.defaults     ESP-IDF defaults
@@ -32,7 +31,8 @@ and maintenance notes live in one place.
 - `src/esp32/gpio/gpio.h`: fake pin id constants.
 - `src/CMakeLists.txt`: main ESP-IDF component; includes both generated request code and Klipper MCU sources.
 - `src/compile_time_request.c`: generated Klipper request/identify data, manually kept in this repository.
-- `printer.cfg`: host macros `BMCU_LOAD`, `BMCU_UNLOAD`, and internal action phases.
+- `config/bmcu.cfg`: host macros `BMCU_LOAD`, `BMCU_UNLOAD`, T0-T7 routing, and internal action phases.
+- `config/box.cfg`: original box-side macros including `M8200`; avoid editing unless intentionally updating upstream box behavior.
 
 ## Host-Side G-code
 
@@ -55,6 +55,48 @@ The macro flow is:
 The 100 ms `G4` dwells keep Klipper output pin events on separate print times.
 Without this, repeated `SET_PIN` values may be coalesced or discarded by
 Klipper's output pin scheduling.
+
+## K2 CFS And UFB Material Routing
+
+`config/box.cfg` includes `config/bmcu.cfg`, and `config/bmcu.cfg` overrides
+the built-in tool commands with `rename_existing: Tn.233`.
+
+Material ownership:
+
+| Tool | Device |
+| --- | --- |
+| `T0`..`T3` | K2 CFS / box |
+| `T4`..`T7` | UFB2CFS / BMCU channels `0`..`3` |
+
+`BMCU_MATERIAL_STATE.current` tracks the selected material as `-1` or `0..7`.
+After a Klipper restart, set it manually if filament is already loaded:
+
+```gcode
+BMCU_SET_CURRENT_MATERIAL MATERIAL=5
+```
+
+The important integration rule is that `BMCU_LOAD` replaces only the physical
+`M8200 L` load operation for UFB-owned materials. All other box-side operations
+remain part of the T command flow.
+
+Current `BMCU_SELECT_MATERIAL` flow:
+
+1. If a material is already selected, run `M8200 P S{target}`.
+2. Cut with `M8200 C S0`.
+3. Unload the previous material:
+   - previous `0..3`: `M8200 R I{current}`
+   - previous `4..7`: `BMCU_UNLOAD CHANNEL={current - 4}`
+4. Load the target material:
+   - target `0..3`: `M8200 L I{target}`, then `M8200 F`, then `M8200 O S{target}`
+   - target `4..7`: set the `M8200.tnn` variable, run `BMCU_LOAD CHANNEL={target - 4}`, then `M8200 W`, `M8200 F`, and `M8200 O S{target}`
+
+`M8200 F` depends on `M8200.tnn`. Because the UFB branch skips `M8200 L`, the
+macro `BMCU_SET_M8200_TNN` must set the same TNN value before `M8200 F`.
+
+From the visible `box.cfg` macro layer, `M8200 C` expands only to
+`CR_BOX_CUT`; retreat/unload is represented separately by `M8200 R` /
+`CR_BOX_RETRUDE`. `CR_BOX_CUT` itself is not implemented in this repository, so
+any hidden low-level behavior must be confirmed by printer testing.
 
 ## Fake Pins
 
@@ -190,6 +232,7 @@ build will recreate it and re-download ESP32 tools if needed.
 - Do not modify Klipper host Python code.
 - Keep the ESP32 firmware dedicated to the BMCU shim.
 - Do not expose physical ESP32 GPIOs to Klipper config.
+- Treat `config/box.cfg` as upstream box config; prefer BMCU integration edits in `config/bmcu.cfg`.
 - Keep trigger as an event, not as stored pin state.
 - Keep endstop as a read of `!action_active`, not as a separate done latch.
 - Treat UART `DONE` as unconditional state convergence.
@@ -198,7 +241,7 @@ build will recreate it and re-download ESP32 tools if needed.
 
 Before changing behavior, check these details:
 
-- `printer.cfg` uses `BMCU_RUN`, not the old `BMCU_ACTION` macro.
+- `config/bmcu.cfg` uses `BMCU_RUN`, not the old `BMCU_ACTION` macro.
 - The action phases are `BMCU_ACTION_PREPARE`, `BMCU_ACTION_TRIGGER`, and `BMCU_ACTION_WAIT`.
 - `BMCU_ACTION_WAIT` resets manual stepper position before the fake move:
   `MANUAL_STEPPER STEPPER=bmcu_channel_action SET_POSITION=0`.
