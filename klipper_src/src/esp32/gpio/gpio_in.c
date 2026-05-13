@@ -1,10 +1,16 @@
 #include "gpio/gpio_in.h"
+#include "bmcu_fake.h"
 #include "command.h"
 #include "driver/gpio.h"
 #include "hal/gpio_ll.h"
 
 struct gpio_in gpio_in_setup(gpio_num_t pin, int_fast8_t pull_up)
 {
+    if (bmcu_fake_is_input_pin(pin)) {
+        bmcu_fake_setup_in(pin, pull_up);
+        return (struct gpio_in){ .pin = pin };
+    }
+
     if (pin >= GPIO_NUM_MAX) {
         shutdown("Input pin outside of range");
     }
@@ -16,6 +22,11 @@ struct gpio_in gpio_in_setup(gpio_num_t pin, int_fast8_t pull_up)
 
 void gpio_in_reset(struct gpio_in gpio, int_fast8_t pull_up)
 {
+    if (bmcu_fake_is_input_pin(gpio.pin)) {
+        bmcu_fake_setup_in(gpio.pin, pull_up);
+        return;
+    }
+
     gpio_ll_input_enable(GPIO_LL_GET_HW(GPIO_PORT_0), gpio.pin);
 
     // Todo: check return values

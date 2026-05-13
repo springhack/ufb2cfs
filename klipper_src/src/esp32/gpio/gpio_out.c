@@ -1,10 +1,16 @@
 #include "gpio/gpio_out.h"
+#include "bmcu_fake.h"
 #include "gpio/shift_register.h"
 #include "command.h"
 #include "driver/gpio.h"
 
 struct gpio_out gpio_out_setup(gpio_num_t pin, uint_fast8_t val)
 {
+    if (bmcu_fake_is_output_pin(pin)) {
+        bmcu_fake_setup_out(pin, val);
+        return (struct gpio_out){ .pin = pin };
+    }
+
     struct gpio_out gpio = { .pin = pin };
     gpio_out_reset(gpio, val);
     return gpio;
@@ -12,6 +18,11 @@ struct gpio_out gpio_out_setup(gpio_num_t pin, uint_fast8_t val)
 
 void gpio_out_reset(struct gpio_out gpio, uint_fast8_t val)
 {
+    if (bmcu_fake_is_output_pin(gpio.pin)) {
+        bmcu_fake_setup_out(gpio.pin, val);
+        return;
+    }
+
 #if CONFIG_HAVE_GPIO_SR
     if (gpio_is_sr(gpio)) {
         gpio_sr_write(gpio, val);

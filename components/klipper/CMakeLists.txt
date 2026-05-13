@@ -34,6 +34,7 @@ set(KLIPPER_SRCS
     "${KLIPPER_SRC_ROOT}/generic/crc16_ccitt.c"
     "${KLIPPER_SRC_ROOT}/generic/timer_irq.c"
     "${KLIPPER_SRC_ROOT}/generic/serial_irq.c"
+    "${KLIPPER_SRC_ROOT}/esp32/bmcu_fake.c"
     "${KLIPPER_SRC_ROOT}/esp32/main.c"
     "${KLIPPER_SRC_ROOT}/esp32/timer.c"
     "${KLIPPER_SRC_ROOT}/esp32/watchdog.c"

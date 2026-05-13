@@ -1,5 +1,6 @@
 #pragma once
 
+#include "bmcu_fake.h"
 #include "gpio/gpio.h"
 #include "hal/gpio_ll.h"
 #include "gpio/shift_register.h"
@@ -9,6 +10,11 @@ void gpio_out_reset(struct gpio_out gpio, uint_fast8_t val);
 
 static inline void __attribute__((always_inline)) gpio_out_write(struct gpio_out gpio, uint_fast8_t val)
 {
+    if (bmcu_fake_is_output_pin(gpio.pin)) {
+        bmcu_fake_write(gpio.pin, val);
+        return;
+    }
+
 #if CONFIG_HAVE_GPIO_SR
     if (gpio_is_sr(gpio)) {
         gpio_sr_write(gpio, val);
@@ -21,6 +27,11 @@ static inline void __attribute__((always_inline)) gpio_out_write(struct gpio_out
 
 static inline void __attribute__((always_inline)) gpio_out_toggle_noirq(struct gpio_out gpio)
 {
+    if (bmcu_fake_is_output_pin(gpio.pin)) {
+        bmcu_fake_toggle(gpio.pin);
+        return;
+    }
+
 #if CONFIG_HAVE_GPIO_SR
     if (gpio_is_sr(gpio)) {
         gpio_sr_write(gpio, !gpio_sr_read(gpio));
