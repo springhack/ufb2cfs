@@ -1,0 +1,71 @@
+set(KLIPPER_SRC_ROOT "${KLIPPER_ROOT}/klipper_src/src")
+
+set(KLIPPER_SRCS
+    "${KLIPPER_SRC_ROOT}/sched.c"
+    "${KLIPPER_SRC_ROOT}/command.c"
+    "${KLIPPER_SRC_ROOT}/basecmd.c"
+    "${KLIPPER_SRC_ROOT}/debugcmds.c"
+    "${KLIPPER_SRC_ROOT}/initial_pins.c"
+    "${KLIPPER_SRC_ROOT}/gpiocmds.c"
+    "${KLIPPER_SRC_ROOT}/stepper.c"
+    "${KLIPPER_SRC_ROOT}/endstop.c"
+    "${KLIPPER_SRC_ROOT}/trsync.c"
+    "${KLIPPER_SRC_ROOT}/adccmds.c"
+    "${KLIPPER_SRC_ROOT}/spicmds.c"
+    "${KLIPPER_SRC_ROOT}/pwmcmds.c"
+    "${KLIPPER_SRC_ROOT}/buttons.c"
+    "${KLIPPER_SRC_ROOT}/tmcuart.c"
+    "${KLIPPER_SRC_ROOT}/neopixel.c"
+    "${KLIPPER_SRC_ROOT}/pulse_counter.c"
+    "${KLIPPER_SRC_ROOT}/lcd_st7920.c"
+    "${KLIPPER_SRC_ROOT}/lcd_hd44780.c"
+    "${KLIPPER_SRC_ROOT}/spi_software.c"
+    "${KLIPPER_SRC_ROOT}/thermocouple.c"
+    "${KLIPPER_SRC_ROOT}/sensor_adxl345.c"
+    "${KLIPPER_SRC_ROOT}/sensor_lis2dw.c"
+    "${KLIPPER_SRC_ROOT}/sensor_bmi160.c"
+    "${KLIPPER_SRC_ROOT}/sensor_hx71x.c"
+    "${KLIPPER_SRC_ROOT}/sensor_ads1220.c"
+    "${KLIPPER_SRC_ROOT}/sensor_angle.c"
+    "${KLIPPER_SRC_ROOT}/sensor_bulk.c"
+    "${KLIPPER_SRC_ROOT}/sos_filter.c"
+    "${KLIPPER_SRC_ROOT}/trigger_analog.c"
+    "${KLIPPER_SRC_ROOT}/generic/alloc.c"
+    "${KLIPPER_SRC_ROOT}/generic/crc16_ccitt.c"
+    "${KLIPPER_SRC_ROOT}/generic/timer_irq.c"
+    "${KLIPPER_SRC_ROOT}/generic/serial_irq.c"
+    "${KLIPPER_SRC_ROOT}/esp32/main.c"
+    "${KLIPPER_SRC_ROOT}/esp32/timer.c"
+    "${KLIPPER_SRC_ROOT}/esp32/watchdog.c"
+    "${KLIPPER_SRC_ROOT}/esp32/serial.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_in.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_out.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_adc.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_adc_cali.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_pwm.c"
+    "${KLIPPER_SRC_ROOT}/esp32/gpio/gpio_spi.c"
+)
+
+idf_component_register(
+    SRCS ${KLIPPER_SRCS}
+    INCLUDE_DIRS
+        "${KLIPPER_ROOT}/include"
+        "${KLIPPER_SRC_ROOT}"
+        "${KLIPPER_SRC_ROOT}/esp32"
+        "${KLIPPER_SRC_ROOT}/generic"
+    PRIV_REQUIRES
+        esp_adc
+        esp_driver_gpio
+        esp_driver_ledc
+        esp_driver_spi
+        esp_driver_uart
+        esp_hal_timg
+        esp_hal_wdt
+    LDFRAGMENTS
+        "${KLIPPER_SRC_ROOT}/esp32/noflash.lf"
+)
+
+target_compile_options(${COMPONENT_LIB} PRIVATE
+    -Wno-error=unterminated-string-initialization
+)
