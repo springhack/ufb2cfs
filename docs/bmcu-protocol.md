@@ -52,8 +52,8 @@ The host config in `printer.cfg` does this:
 
 At the moment, `bmcu_fake_start_action()` completes immediately. Replace that placeholder with the real asynchronous load/unload work.
 
-## Important Build Note
+## Build Note
 
-`src/compile_time_request.c` and `klipper.dict` are pre-generated in this repository. Adding `DECL_ENUMERATION()` in source is necessary, but the generated identify dictionary must also include the fake pin names for a real Klipper host to accept `printer.cfg`.
+`src/compile_time_request.c` and `klipper.dict` are pre-generated in this repository. When fake pin names change, keep both the source `DECL_ENUMERATION()` entries and the generated identify dictionary in sync.
 
-If fake pin names are not visible to Klipper, regenerate or update the identify dictionary so the `pin` enumeration contains the names above.
+The current identify dictionary contains all fake pin names listed above.
