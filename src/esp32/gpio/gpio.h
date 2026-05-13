@@ -9,6 +9,7 @@
 #define BMCU_FAKE_PIN_ACTION_DIR (BMCU_FAKE_PIN_BASE + 3)
 #define BMCU_FAKE_PIN_ACTION_STEP (BMCU_FAKE_PIN_BASE + 4)
 #define BMCU_FAKE_PIN_ACTION_ENDSTOP (BMCU_FAKE_PIN_BASE + 5)
+#define BMCU_FAKE_PIN_ACTION_TRIGGER (BMCU_FAKE_PIN_BASE + 6)
 
 struct gpio { gpio_num_t pin; };
 #define gpio_in gpio

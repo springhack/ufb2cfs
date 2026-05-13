@@ -1,6 +1,7 @@
 #include "bmcu_fake.h"
 #include "board/misc.h"
 #include "gpio/gpio.h"
+#include "sched.h"
 #include "driver/uart.h"
 #include "esp_err.h"
 #include "hal/gpio_ll.h"
@@ -24,10 +25,7 @@ struct bmcu_fake_state {
     uint8_t channel_low;
     uint8_t channel_high;
     uint8_t channel_mode;
-    uint8_t action_dir;
-    uint8_t action_step;
     uint8_t action_active;
-    uint8_t action_done;
     uint8_t uart_initialized;
     uint8_t rx_len;
     char rx_line[BMCU_RX_LINE_MAX];
@@ -39,22 +37,22 @@ struct bmcu_fake_state {
 static struct bmcu_fake_state bmcu;
 
 static void
-bmcu_fake_arm_action(void)
+bmcu_fake_finish_action(void)
 {
     bmcu.action_active = 0;
-    bmcu.action_done = 0;
 }
 
 uint_fast8_t
 bmcu_fake_is_pin(uint32_t pin)
 {
-    return pin >= BMCU_FAKE_PIN_CHANNEL_LOW && pin <= BMCU_FAKE_PIN_ACTION_ENDSTOP;
+    return pin >= BMCU_FAKE_PIN_CHANNEL_LOW && pin <= BMCU_FAKE_PIN_ACTION_TRIGGER;
 }
 
 uint_fast8_t
 bmcu_fake_is_output_pin(uint32_t pin)
 {
-    return pin >= BMCU_FAKE_PIN_CHANNEL_LOW && pin <= BMCU_FAKE_PIN_ACTION_STEP;
+    return (pin >= BMCU_FAKE_PIN_CHANNEL_LOW && pin <= BMCU_FAKE_PIN_ACTION_STEP)
+        || pin == BMCU_FAKE_PIN_ACTION_TRIGGER;
 }
 
 uint_fast8_t
@@ -157,10 +155,8 @@ static void
 bmcu_fake_finish_rx_line(void)
 {
     bmcu.rx_line[bmcu.rx_len] = '\0';
-    if (strcmp(bmcu.rx_line, BMCU_DONE_LINE) == 0) {
-        bmcu.action_done = 1;
-        bmcu.action_active = 0;
-    }
+    if (strcmp(bmcu.rx_line, BMCU_DONE_LINE) == 0)
+        bmcu_fake_finish_action();
     bmcu.rx_len = 0;
 }
 
@@ -169,7 +165,7 @@ bmcu_fake_poll_uart(void)
 {
     bmcu_fake_led_task();
 
-    if (!bmcu.uart_initialized || !bmcu.action_active)
+    if (!bmcu.uart_initialized)
         return;
 
     uint8_t data[16];
@@ -196,6 +192,20 @@ bmcu_fake_poll_uart(void)
     }
 }
 
+void
+bmcu_fake_init(void)
+{
+    bmcu_fake_uart_init();
+}
+DECL_INIT(bmcu_fake_init);
+
+void
+bmcu_fake_task(void)
+{
+    bmcu_fake_poll_uart();
+}
+DECL_TASK(bmcu_fake_task);
+
 static void
 bmcu_fake_start_action(void)
 {
@@ -204,7 +214,6 @@ bmcu_fake_start_action(void)
     char request[16];
 
     bmcu.action_active = 1;
-    bmcu.action_done = 0;
     bmcu.rx_len = 0;
     bmcu.led_next_toggle = timer_read_time() + BMCU_ACTION_LED_BLINK_TICKS;
     bmcu_fake_led_set(1);
@@ -227,23 +236,19 @@ bmcu_fake_write(uint32_t pin, uint_fast8_t value)
     switch (pin) {
     case BMCU_FAKE_PIN_CHANNEL_LOW:
         bmcu.channel_low = bit;
-        bmcu_fake_arm_action();
         break;
     case BMCU_FAKE_PIN_CHANNEL_HIGH:
         bmcu.channel_high = bit;
-        bmcu_fake_arm_action();
         break;
     case BMCU_FAKE_PIN_CHANNEL_MODE:
         bmcu.channel_mode = bit;
-        bmcu_fake_arm_action();
         break;
     case BMCU_FAKE_PIN_ACTION_DIR:
-        bmcu.action_dir = bit;
-        break;
     case BMCU_FAKE_PIN_ACTION_STEP:
-        if (!bmcu.action_step && bit && !bmcu.action_active && !bmcu.action_done)
+        break;
+    case BMCU_FAKE_PIN_ACTION_TRIGGER:
+        if (bit && !bmcu.action_active)
             bmcu_fake_start_action();
-        bmcu.action_step = bit;
         break;
     }
 }
@@ -261,11 +266,10 @@ bmcu_fake_read(uint32_t pin)
     case BMCU_FAKE_PIN_CHANNEL_MODE:
         return bmcu.channel_mode;
     case BMCU_FAKE_PIN_ACTION_DIR:
-        return bmcu.action_dir;
     case BMCU_FAKE_PIN_ACTION_STEP:
-        return bmcu.action_step;
+        return 0;
     case BMCU_FAKE_PIN_ACTION_ENDSTOP:
-        return bmcu.action_done;
+        return !bmcu.action_active;
     }
     return 0;
 }
